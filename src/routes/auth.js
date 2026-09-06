@@ -52,7 +52,15 @@ authRouter.post("/login", async (req, res) => {
         const isPasswordValid = await user.validatePassword(password);
         if (isPasswordValid) {
             const token = await user.getJWT();
-            res.cookie("token", token, { expires: new Date(Date.now() + 7 * 24 * 3600000) });
+
+            const isProduction = process.env.NODE_ENV === "production";
+            res.cookie("token", token, {
+                expires: new Date(Date.now() + 7 * 24 * 3600000),
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: isProduction ? "None" : "Lax",
+            });
+
             res.send(user);
         } else {
             return res.status(401).send("Invalid credentials!!");

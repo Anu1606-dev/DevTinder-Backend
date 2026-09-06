@@ -1,11 +1,7 @@
-// importing mongoose module
 const mongoose = require('mongoose');
-// validator module is used to validate email, password, and other fields in the user model
-// validator is a npm library that provides string validation and sanitization functions
-// importing validator module to validate email
 const validator = require('validator');
-const jwt = require('jsonwebtoken'); // importing jsonwebtoken module to create and verify JWT tokens
-const bcrypt = require('bcrypt'); // importing bcryptjs module to hash the password before saving to the database
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
     firstName: {
@@ -47,7 +43,7 @@ const userSchema = new mongoose.Schema({
     },
     photoUrl: {
         type: String,
-        defayult: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
+        default: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
         validate(value) {
             if(!validator.isURL(value)) {
                 throw new Error("URL is invalid!!" + value);
@@ -66,24 +62,24 @@ const userSchema = new mongoose.Schema({
     timestamps: true,  
 });
 
-userSchema.index({firstName: 1, lastName: 1, email: 1}); // creating a compound index on firstName, lastName, and email to ensure uniqueness of users
+userSchema.index({firstName: 1, lastName: 1, email: 1});
 
 userSchema.methods.getJWT = async function() {
-    const user = this; // this refers to the current user instance
+    const user = this;
 
     const token = await jwt.sign(
         { _id: user._id }, 
-        "DEV@Tinder$799087", 
+        process.env.JWT_SECRET, 
         {expiresIn: "7d"} 
-    ); // creating a JWT token with the user's ID and a secret key, expiring in 1 hour
+    );
 
     return token;
 }
 
 userSchema.methods.validatePassword = async function(passwordInputByUser){
     const user = this;
-    const passwordHash = user.password; // getting the hashed password from the user instance
-    const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash); // comparing the provided password with the hashed password in the database
+    const passwordHash = user.password;
+    const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
 
     return isPasswordValid;
 }
