@@ -2,7 +2,8 @@ const express = require("express");
 const requestRouter = express.Router();
 const {userAuth} = require('../middlewares/auth');
 const ConnectionRequestModel = require('../models/connectionRequest');
-const User = require('../models/user'); 
+const User = require('../models/user');
+const sendEmail = require('../utils/sendEmail');
 
 // api for sending connection request to another user
 requestRouter.post("/request/send/:status/:toUserId", userAuth, async(req, res) => {
@@ -42,12 +43,16 @@ requestRouter.post("/request/send/:status/:toUserId", userAuth, async(req, res) 
 
         const data = await connectionRequest.save();
 
+        const emailRes = await sendEmail.run();
+        console.log("Email sent successfully!!", emailRes);
+
         res.json({
             message: req.user.firstName + "is" + status + "in" + toUser.firstName,
             data,
         })
 
     }catch(err){
+        console.error(err);
         res.status(500).send("Error while sending connection request!!");
     }
 });
@@ -80,6 +85,7 @@ requestRouter.post("/request/review/:status/:requestId", userAuth, async(req, re
         });
 
     }catch(err){
+        console.error(err);
         res.status(500).send("Error while reviewing connection request!!");
     }
 })
