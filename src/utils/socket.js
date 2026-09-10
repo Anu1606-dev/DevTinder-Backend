@@ -20,7 +20,6 @@ const initializeSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    // AUTH: verify the user's JWT cookie during the handshake
     let userId;
     try {
       const cookies = socket.handshake.headers.cookie || "";
@@ -36,6 +35,11 @@ const initializeSocket = (server) => {
       return;
     }
 
+    // ← ADDED: join a personal room keyed by this user's own ID.
+    // This lets us push global notifications (unread badge updates)
+    // to this user regardless of which page they're currently on.
+    socket.join(userId.toString());
+
     socket.on("joinChat", ({ targetUserId }) => {
       const roomId = getSecretRoomId(userId, targetUserId);
       socket.join(roomId);
@@ -43,7 +47,6 @@ const initializeSocket = (server) => {
 
     socket.on("sendMessage", async ({ firstName, targetUserId, text }) => {
       try {
-        // SECURITY FIX: only allow messaging between users who are actually connected
         const isConnected = await ConnectionRequestModel.findOne({
           $or: [
             { fromUserId: userId, toUserId: targetUserId, status: "accepted" },
@@ -70,6 +73,12 @@ const initializeSocket = (server) => {
         await chat.save();
 
         io.to(roomId).emit("messageReceived", { firstName, text, senderId: userId });
+
+        // ← ADDED: also notify the recipient's personal room, so their
+        // navbar badge updates live even if they're not on this chat page
+        io.to(targetUserId.toString()).emit("newMessageNotification", {
+          fromUserId: userId.toString(),
+        });
       } catch (err) {
         console.error("Error sending message:", err);
       }
