@@ -12,8 +12,13 @@ const chatSchema = new mongoose.Schema(
   {
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     messages: [messageSchema],
+    lastSeen: {
+      type: Map,
+      of: Date,
+      default: {},
+    }, // ← ADDED — tracks, per user, when they last opened this conversation
   },
-  { timestamps: true } // ← ADDED — lets us sort the chat list by "most recently active"
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Chat", chatSchema);

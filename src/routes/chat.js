@@ -10,14 +10,17 @@ chatRouter.get("/chat/:targetUserId", userAuth, async (req, res) => {
   try {
     let chat = await Chat.findOne({
       participants: { $all: [userId, targetUserId] },
-    }).populate({
-      path: "messages.senderId",
-      select: "firstName lastName",
-    });
+    })
+      .populate({
+        path: "messages.senderId",
+        select: "firstName lastName",
+      })
+      .populate("participants", "firstName lastName photoUrl"); // ← ADDED
 
     if (!chat) {
       chat = new Chat({ participants: [userId, targetUserId], messages: [] });
       await chat.save();
+      chat = await chat.populate("participants", "firstName lastName photoUrl"); // ← ADDED
     }
 
     res.json(chat);
@@ -26,14 +29,13 @@ chatRouter.get("/chat/:targetUserId", userAuth, async (req, res) => {
   }
 });
 
-// ← ADDED: list of all conversations for the ChatList page (WhatsApp-style)
 chatRouter.get("/chats", userAuth, async (req, res) => {
   try {
     const userId = req.user._id;
 
     const chats = await Chat.find({
       participants: userId,
-      "messages.0": { $exists: true }, // only chats with at least one message
+      "messages.0": { $exists: true },
     })
       .populate("participants", "firstName lastName photoUrl")
       .sort({ updatedAt: -1 });
@@ -50,6 +52,7 @@ chatRouter.get("/chats", userAuth, async (req, res) => {
         lastName: otherUser?.lastName,
         photoUrl: otherUser?.photoUrl,
         lastMessageText: lastMessage?.text || "",
+        lastMessageSenderId: lastMessage?.senderId?.toString() || null, // ← ADDED
         lastMessageTime: lastMessage?.createdAt || chat.updatedAt,
       };
     });
