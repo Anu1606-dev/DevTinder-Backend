@@ -43,13 +43,23 @@ requestRouter.post("/request/send/:status/:toUserId", userAuth, async (req, res)
 
         const data = await connectionRequest.save();
 
-        const emailRes = await sendEmail.run(
-            toUser.email,
-            "New Connection Request!",
-            `<h1>${req.user.firstName} is interested in connecting with you!</h1>`,
-            `${req.user.firstName} is interested in connecting with you!`
-        );
-        console.log("Email sent successfully!!", emailRes);
+        try {
+            const emailRes = await sendEmail.run(
+                toUser.emailId,
+                "New Connection Request!",
+                `<h1>${req.user.firstName} is interested in connecting with you!</h1>`,
+                `${req.user.firstName} is interested in connecting with you!`
+            );
+
+            if (emailRes instanceof Error) {
+                console.log("Email not sent (this is expected for unverified test emails):", emailRes.message);
+            } else {
+                console.log("Email sent successfully!!", emailRes);
+            }
+        } catch (emailErr) {
+            console.error("Unexpected email error:", emailErr);
+            // don't rethrow — the connection request itself already succeeded and shouldn't be blocked by email issues
+        }
 
         res.json({
             message: req.user.firstName + "is" + status + "in" + toUser.firstName,
