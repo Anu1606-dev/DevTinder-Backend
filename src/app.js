@@ -1,13 +1,13 @@
 require('dotenv').config();
 
 const express = require('express');
-const http = require('http'); // ← ADDED
+const http = require('http');
 const connectDB = require('./config/database');
 const app = express();
 const port = process.env.PORT || 7777;
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
-const initializeSocket = require('./utils/socket'); // ← ADDED
+const initializeSocket = require('./utils/socket');
 
 app.use(cors({
     origin: process.env.CLIENT_URL,
@@ -26,7 +26,8 @@ const requestRouter = require('./routes/request');
 const profileRouter = require('./routes/profile');
 const userRouter = require('./routes/user');
 const paymentRouter = require('./routes/payment');
-const chatRouter = require('./routes/chat'); // ← ADDED
+const chatRouter = require('./routes/chat');
+const githubAuthRouter = require('./routes/githubAuth'); // ← ADDED
 
 require('./utils/cronjob');
 
@@ -35,14 +36,15 @@ app.use("/", requestRouter);
 app.use("/", profileRouter);
 app.use("/", userRouter);
 app.use("/", paymentRouter);
-app.use("/", chatRouter); // ← ADDED
+app.use("/", chatRouter);
+app.use("/", githubAuthRouter); // ← ADDED
 
-const server = http.createServer(app); // ← ADDED
-initializeSocket(server); // ← ADDED
+const server = http.createServer(app);
+initializeSocket(server);
 
 connectDB().then(() => {
     console.log("MongoDB connected successfully!!");
-    server.listen(port, () => { // ← CHANGED from app.listen to server.listen
+    server.listen(port, () => {
         console.log(`Example app listening on port ${port}`)
     })
 }).catch((err) => {
