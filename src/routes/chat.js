@@ -12,15 +12,14 @@ chatRouter.get("/chat/:targetUserId", userAuth, async (req, res) => {
       participants: { $all: [userId, targetUserId] },
     })
       .populate({ path: "messages.senderId", select: "firstName lastName" })
-      .populate("participants", "firstName lastName photoUrl");
+      .populate("participants", "firstName lastName photoUrl skills");
 
     if (!chat) {
       chat = new Chat({ participants: [userId, targetUserId], messages: [] });
       await chat.save();
-      chat = await chat.populate("participants", "firstName lastName photoUrl");
+      chat = await chat.populate("participants", "firstName lastName photoUrl skills");
     }
 
-    // ← ADDED: opening this conversation means the user has now "seen" it
     chat.lastSeen.set(userId.toString(), new Date());
     await chat.save();
 
@@ -38,7 +37,7 @@ chatRouter.get("/chats", userAuth, async (req, res) => {
       participants: userId,
       "messages.0": { $exists: true },
     })
-      .populate("participants", "firstName lastName photoUrl")
+      .populate("participants", "firstName lastName photoUrl skills") // ← FIXED: was missing skills
       .sort({ updatedAt: -1 });
 
     const formatted = chats.map((chat) => {
@@ -47,7 +46,6 @@ chatRouter.get("/chats", userAuth, async (req, res) => {
       );
       const lastMessage = chat.messages[chat.messages.length - 1];
 
-      // ← ADDED: count messages from the other person sent after this user's last visit
       const lastSeenTime = chat.lastSeen.get(userId.toString()) || new Date(0);
       const unreadCount = chat.messages.filter(
         (m) =>
@@ -63,7 +61,8 @@ chatRouter.get("/chats", userAuth, async (req, res) => {
         lastMessageText: lastMessage?.text || "",
         lastMessageSenderId: lastMessage?.senderId?.toString() || null,
         lastMessageTime: lastMessage?.createdAt || chat.updatedAt,
-        unreadCount, // ← ADDED
+        unreadCount,
+        skills: otherUser?.skills || [],
       };
     });
 

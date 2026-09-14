@@ -57,7 +57,6 @@ const userSchema = new mongoose.Schema({
     skills: {
         type: [String],
     },
-    // ← ADDED: GitHub identity verification (Feature 1)
     isGithubVerified: {
         type: Boolean,
         default: false,

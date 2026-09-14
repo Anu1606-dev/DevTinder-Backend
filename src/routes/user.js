@@ -3,6 +3,7 @@ const userRouter = express.Router();
 const { userAuth } = require('../middlewares/auth');
 const ConnectionRequest = require('../models/connectionRequest');
 const User = require('../models/user');
+const { calculateSkillMatch } = require('../utils/matchingService'); // ← ADDED
 
 const USER_SAFE_DATA = ["firstName", "lastName", "photoUrl", "about", "skills", "age"];
 
@@ -72,16 +73,29 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
             hideUsersFromFeed.add(req.toUserId.toString());
         });
 
-        const users = await User.find({
+        // ← CHANGED: fetch all eligible candidates first (no skip/limit yet),
+        // so we can rank by match quality across the whole pool, not just one page at a time
+        const candidates = await User.find({
             $and: [
                 { _id: { $nin: Array.from(hideUsersFromFeed) } },
                 { _id: { $ne: loggedInUser._id } }
             ]
-        }).select(USER_SAFE_DATA).skip(skip).limit(limit);
+        }).select(USER_SAFE_DATA);
+
+        // ← ADDED: score every candidate by skill overlap, best matches first
+        const scoredUsers = candidates
+            .map((candidate) => {
+                const matchScore = calculateSkillMatch(loggedInUser.skills, candidate.skills);
+                return { ...candidate.toObject(), matchScore };
+            })
+            .sort((a, b) => b.matchScore - a.matchScore);
+
+        // ← CHANGED: paginate in-memory now, after sorting by match score
+        const paginatedUsers = scoredUsers.slice(skip, skip + limit);
 
         res.json({
             message: "Feed fetched successfully!!",
-            data: users,
+            data: paginatedUsers,
         });
 
     } catch (err) {
