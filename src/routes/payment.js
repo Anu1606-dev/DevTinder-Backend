@@ -4,14 +4,16 @@ const paymentRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 const { razorpayInstance } = require("../utils/razorpayClient");
 const Payment = require("../models/payment");
+const User = require("../models/user"); // ← ADDED
 
-// STEP 6: Create a Razorpay order when user clicks "Buy Premium"
+const PREMIUM_DURATION_DAYS = 30; // ← ADDED
+
 paymentRouter.post("/payment/create", userAuth, async (req, res) => {
   try {
     const { amount } = req.body;
 
     const order = await razorpayInstance.orders.create({
-      amount: amount * 100, // Razorpay needs paise, not rupees
+      amount: amount * 100,
       currency: "INR",
       receipt: "receipt_" + Date.now(),
       notes: { userId: req.user._id.toString() },
@@ -32,7 +34,6 @@ paymentRouter.post("/payment/create", userAuth, async (req, res) => {
   }
 });
 
-// STEP 8: Verify the payment signature after checkout popup closes
 paymentRouter.post("/payment/verify", userAuth, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
@@ -51,14 +52,22 @@ paymentRouter.post("/payment/verify", userAuth, async (req, res) => {
       { paymentId: razorpay_payment_id, status: "paid" }
     );
 
-    res.json({ success: true, message: "Payment verified!" });
+    // ← ADDED: actually grant premium status
+    const premiumExpiresAt = new Date();
+    premiumExpiresAt.setDate(premiumExpiresAt.getDate() + PREMIUM_DURATION_DAYS);
+
+    await User.findByIdAndUpdate(req.user._id, {
+      isPremium: true,
+      premiumExpiresAt,
+    });
+
+    res.json({ success: true, message: "Payment verified!", premiumExpiresAt });
   } catch (err) {
     console.error("Payment verification failed:", err);
     res.status(500).send("Error verifying payment");
   }
 });
 
-// STEP 9: Webhook - Razorpay's server calls this independently to confirm payment
 paymentRouter.post("/payment/webhook", async (req, res) => {
   try {
     const signature = req.headers["x-razorpay-signature"];
@@ -77,10 +86,21 @@ paymentRouter.post("/payment/webhook", async (req, res) => {
 
     if (event === "payment.captured") {
       const payment = req.body.payload.payment.entity;
-      await Payment.findOneAndUpdate(
+
+      const updatedPayment = await Payment.findOneAndUpdate(
         { orderId: payment.order_id },
         { paymentId: payment.id, status: "paid" }
       );
+
+      if (updatedPayment) {
+        const premiumExpiresAt = new Date();
+        premiumExpiresAt.setDate(premiumExpiresAt.getDate() + PREMIUM_DURATION_DAYS);
+
+        await User.findByIdAndUpdate(updatedPayment.userId, {
+          isPremium: true,
+          premiumExpiresAt,
+        });
+      }
     }
 
     res.status(200).send();

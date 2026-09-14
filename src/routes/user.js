@@ -3,6 +3,7 @@ const userRouter = express.Router();
 const { userAuth } = require('../middlewares/auth');
 const ConnectionRequest = require('../models/connectionRequest');
 const User = require('../models/user');
+const ProfileView = require('../models/profileView'); // ← ADDED
 const { calculateSkillMatch } = require('../utils/matchingService');
 
 const USER_SAFE_DATA = ["firstName", "lastName", "photoUrl", "about", "skills", "age"];
@@ -15,8 +16,6 @@ userRouter.get("/user/requests/received", userAuth, async (req, res) => {
             status: "interested",
         }).populate("fromUserId", USER_SAFE_DATA);
 
-        // ← ADDED: attach matchScore directly onto each fromUserId object,
-        // so HorizontalUserCard picks it up automatically with zero frontend changes
         const dataWithScores = connectionRequests.map((row) => {
             const fromUserObj = row.toObject().fromUserId;
             const matchScore = calculateSkillMatch(loggedInUser.skills, fromUserObj.skills);
@@ -51,7 +50,6 @@ userRouter.get("/user/connections", userAuth, async (req, res) => {
                 ? row.toUserId
                 : row.fromUserId;
 
-            // ← ADDED: attach matchScore directly onto the returned user object
             const matchScore = calculateSkillMatch(loggedInUser.skills, otherUser.skills);
             return { ...otherUser.toObject(), matchScore };
         });
@@ -92,16 +90,36 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
                 { _id: { $nin: Array.from(hideUsersFromFeed) } },
                 { _id: { $ne: loggedInUser._id } }
             ]
-        }).select(USER_SAFE_DATA);
+        }).select([...USER_SAFE_DATA, "boostedUntil"]); // ← CHANGED: also fetch boostedUntil
+
+        const now = new Date();
 
         const scoredUsers = candidates
             .map((candidate) => {
                 const matchScore = calculateSkillMatch(loggedInUser.skills, candidate.skills);
-                return { ...candidate.toObject(), matchScore };
+                const isBoosted = candidate.boostedUntil && new Date(candidate.boostedUntil) > now; // ← ADDED
+                const { boostedUntil, ...safeCandidate } = candidate.toObject(); // ← ADDED: strip internal field from response
+                return { ...safeCandidate, matchScore, isBoosted };
             })
-            .sort((a, b) => b.matchScore - a.matchScore);
+            .sort((a, b) => {
+                // ← ADDED: boosted users always float to the top, regardless of match score
+                if (a.isBoosted && !b.isBoosted) return -1;
+                if (!a.isBoosted && b.isBoosted) return 1;
+                return b.matchScore - a.matchScore;
+            });
 
         const paginatedUsers = scoredUsers.slice(skip, skip + limit);
+
+        // ← ADDED: log a profile view for everyone shown on this page, fire-and-forget
+        if (paginatedUsers.length > 0) {
+            const viewDocs = paginatedUsers.map((u) => ({
+                viewerId: loggedInUser._id,
+                viewedUserId: u._id,
+            }));
+            ProfileView.insertMany(viewDocs).catch((err) =>
+                console.error("Failed to log profile views:", err)
+            );
+        }
 
         res.json({
             message: "Feed fetched successfully!!",

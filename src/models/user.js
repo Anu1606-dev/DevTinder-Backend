@@ -73,6 +73,16 @@ const userSchema = new mongoose.Schema({
         topLanguages: { type: [String] },
         connectedAt: { type: Date },
     },
+    isPremium: {
+        type: Boolean,
+        default: false,
+    },
+    premiumExpiresAt: {
+        type: Date,
+    },
+    boostedUntil: {
+        type: Date,
+    },
 },
     {
         timestamps: true,
