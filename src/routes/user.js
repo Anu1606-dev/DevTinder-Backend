@@ -3,7 +3,7 @@ const userRouter = express.Router();
 const { userAuth } = require('../middlewares/auth');
 const ConnectionRequest = require('../models/connectionRequest');
 const User = require('../models/user');
-const { calculateSkillMatch } = require('../utils/matchingService'); // ← ADDED
+const { calculateSkillMatch } = require('../utils/matchingService');
 
 const USER_SAFE_DATA = ["firstName", "lastName", "photoUrl", "about", "skills", "age"];
 
@@ -15,9 +15,20 @@ userRouter.get("/user/requests/received", userAuth, async (req, res) => {
             status: "interested",
         }).populate("fromUserId", USER_SAFE_DATA);
 
+        // ← ADDED: attach matchScore directly onto each fromUserId object,
+        // so HorizontalUserCard picks it up automatically with zero frontend changes
+        const dataWithScores = connectionRequests.map((row) => {
+            const fromUserObj = row.toObject().fromUserId;
+            const matchScore = calculateSkillMatch(loggedInUser.skills, fromUserObj.skills);
+            return {
+                ...row.toObject(),
+                fromUserId: { ...fromUserObj, matchScore },
+            };
+        });
+
         res.json({
             message: "Data fetched successfully!!",
-            data: connectionRequests,
+            data: dataWithScores,
         });
 
     } catch (err) {
@@ -36,10 +47,13 @@ userRouter.get("/user/connections", userAuth, async (req, res) => {
         }).populate("fromUserId", USER_SAFE_DATA).populate("toUserId", USER_SAFE_DATA);
 
         const data = connectionRequests.map((row) => {
-            if (row.fromUserId._id.toString() === loggedInUser._id.toString()) {
-                return row.toUserId;
-            }
-            return row.fromUserId;
+            const otherUser = row.fromUserId._id.toString() === loggedInUser._id.toString()
+                ? row.toUserId
+                : row.fromUserId;
+
+            // ← ADDED: attach matchScore directly onto the returned user object
+            const matchScore = calculateSkillMatch(loggedInUser.skills, otherUser.skills);
+            return { ...otherUser.toObject(), matchScore };
         });
 
         res.json({
@@ -73,8 +87,6 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
             hideUsersFromFeed.add(req.toUserId.toString());
         });
 
-        // ← CHANGED: fetch all eligible candidates first (no skip/limit yet),
-        // so we can rank by match quality across the whole pool, not just one page at a time
         const candidates = await User.find({
             $and: [
                 { _id: { $nin: Array.from(hideUsersFromFeed) } },
@@ -82,7 +94,6 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
             ]
         }).select(USER_SAFE_DATA);
 
-        // ← ADDED: score every candidate by skill overlap, best matches first
         const scoredUsers = candidates
             .map((candidate) => {
                 const matchScore = calculateSkillMatch(loggedInUser.skills, candidate.skills);
@@ -90,7 +101,6 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
             })
             .sort((a, b) => b.matchScore - a.matchScore);
 
-        // ← CHANGED: paginate in-memory now, after sorting by match score
         const paginatedUsers = scoredUsers.slice(skip, skip + limit);
 
         res.json({
