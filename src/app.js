@@ -28,7 +28,8 @@ const userRouter = require('./routes/user');
 const paymentRouter = require('./routes/payment');
 const chatRouter = require('./routes/chat');
 const githubAuthRouter = require('./routes/githubAuth');
-const matchingRouter = require('./routes/matching'); // ← ADDED (replaces aiRouter)
+const matchingRouter = require('./routes/matching');
+const reportsRouter = require('./routes/reports'); // ← ADDED
 
 require('./utils/cronjob');
 
@@ -39,7 +40,8 @@ app.use("/", userRouter);
 app.use("/", paymentRouter);
 app.use("/", chatRouter);
 app.use("/", githubAuthRouter);
-app.use("/", matchingRouter); // ← ADDED
+app.use("/", matchingRouter);
+app.use("/", reportsRouter); // ← ADDED
 
 const server = http.createServer(app);
 initializeSocket(server);

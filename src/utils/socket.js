@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const Chat = require("../models/chat");
 const ConnectionRequestModel = require("../models/connectionRequest");
+const { containsProfanity } = require("../utils/contentModeration"); // ← ADDED
 
 const getSecretRoomId = (userId, targetUserId) => {
   return crypto
@@ -35,9 +36,6 @@ const initializeSocket = (server) => {
       return;
     }
 
-    // ← ADDED: join a personal room keyed by this user's own ID.
-    // This lets us push global notifications (unread badge updates)
-    // to this user regardless of which page they're currently on.
     socket.join(userId.toString());
 
     socket.on("joinChat", ({ targetUserId }) => {
@@ -59,6 +57,12 @@ const initializeSocket = (server) => {
           return;
         }
 
+        // ← ADDED: block obviously abusive messages before they're ever saved
+        if (containsProfanity(text)) {
+          socket.emit("errorMessage", "Your message contains inappropriate language and wasn't sent.");
+          return;
+        }
+
         const roomId = getSecretRoomId(userId, targetUserId);
 
         let chat = await Chat.findOne({
@@ -74,8 +78,6 @@ const initializeSocket = (server) => {
 
         io.to(roomId).emit("messageReceived", { firstName, text, senderId: userId });
 
-        // ← ADDED: also notify the recipient's personal room, so their
-        // navbar badge updates live even if they're not on this chat page
         io.to(targetUserId.toString()).emit("newMessageNotification", {
           fromUserId: userId.toString(),
         });

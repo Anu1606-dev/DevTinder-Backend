@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
         lowercase: true,
         trim: true,
         validate(value) {
-            if(!validator.isEmail(value)) {
+            if (!validator.isEmail(value)) {
                 throw new Error("Email is invalid!!" + value);
             }
         }
@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
         validate(value) {
-            if(!validator.isURL(value)) {
+            if (!validator.isURL(value)) {
                 throw new Error("URL is invalid!!" + value);
             }
         }
@@ -61,6 +61,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    isAdmin: {
+        type: Boolean,
+        default: false,
+    },
     github: {
         username: { type: String },
         profileUrl: { type: String },
@@ -70,25 +74,25 @@ const userSchema = new mongoose.Schema({
         connectedAt: { type: Date },
     },
 },
-{
-    timestamps: true,  
-});
+    {
+        timestamps: true,
+    });
 
-userSchema.index({firstName: 1, lastName: 1, email: 1});
+userSchema.index({ firstName: 1, lastName: 1, email: 1 });
 
-userSchema.methods.getJWT = async function() {
+userSchema.methods.getJWT = async function () {
     const user = this;
 
     const token = await jwt.sign(
-        { _id: user._id }, 
-        process.env.JWT_SECRET, 
-        {expiresIn: "7d"} 
+        { _id: user._id },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
     );
 
     return token;
 }
 
-userSchema.methods.validatePassword = async function(passwordInputByUser){
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
     const user = this;
     const passwordHash = user.password;
     const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
