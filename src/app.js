@@ -30,7 +30,8 @@ const chatRouter = require('./routes/chat');
 const githubAuthRouter = require('./routes/githubAuth');
 const matchingRouter = require('./routes/matching');
 const reportsRouter = require('./routes/reports');
-const premiumRouter = require('./routes/premium'); // ← ADDED
+const premiumRouter = require('./routes/premium');
+const referralRouter = require('./routes/referral'); // ← ADDED
 
 require('./utils/cronjob');
 
@@ -43,7 +44,8 @@ app.use("/", chatRouter);
 app.use("/", githubAuthRouter);
 app.use("/", matchingRouter);
 app.use("/", reportsRouter);
-app.use("/", premiumRouter); // ← ADDED
+app.use("/", premiumRouter);
+app.use("/", referralRouter); // ← ADDED
 
 const server = http.createServer(app);
 initializeSocket(server);

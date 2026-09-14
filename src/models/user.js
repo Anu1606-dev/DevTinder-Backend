@@ -83,6 +83,24 @@ const userSchema = new mongoose.Schema({
     boostedUntil: {
         type: Date,
     },
+    referralCode: {
+        type: String,
+        unique: true,
+        sparse: true, // allows many users to have "no code yet" without violating uniqueness
+    },
+    referredBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+    },
+    referralCount: {
+        type: Number,
+        default: 0,
+    },
+    hasReceivedReferralBonus: {
+        type: Boolean,
+        default: false,
+    },
 },
     {
         timestamps: true,

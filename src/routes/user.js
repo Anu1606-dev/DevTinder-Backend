@@ -3,8 +3,9 @@ const userRouter = express.Router();
 const { userAuth } = require('../middlewares/auth');
 const ConnectionRequest = require('../models/connectionRequest');
 const User = require('../models/user');
-const ProfileView = require('../models/profileView'); // ← ADDED
+const ProfileView = require('../models/profileView');
 const { calculateSkillMatch } = require('../utils/matchingService');
+const { BADGES } = require('../utils/badgesConfig'); // ← ADDED
 
 const USER_SAFE_DATA = ["firstName", "lastName", "photoUrl", "about", "skills", "age"];
 
@@ -90,19 +91,18 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
                 { _id: { $nin: Array.from(hideUsersFromFeed) } },
                 { _id: { $ne: loggedInUser._id } }
             ]
-        }).select([...USER_SAFE_DATA, "boostedUntil"]); // ← CHANGED: also fetch boostedUntil
+        }).select([...USER_SAFE_DATA, "boostedUntil"]);
 
         const now = new Date();
 
         const scoredUsers = candidates
             .map((candidate) => {
                 const matchScore = calculateSkillMatch(loggedInUser.skills, candidate.skills);
-                const isBoosted = candidate.boostedUntil && new Date(candidate.boostedUntil) > now; // ← ADDED
-                const { boostedUntil, ...safeCandidate } = candidate.toObject(); // ← ADDED: strip internal field from response
+                const isBoosted = candidate.boostedUntil && new Date(candidate.boostedUntil) > now;
+                const { boostedUntil, ...safeCandidate } = candidate.toObject();
                 return { ...safeCandidate, matchScore, isBoosted };
             })
             .sort((a, b) => {
-                // ← ADDED: boosted users always float to the top, regardless of match score
                 if (a.isBoosted && !b.isBoosted) return -1;
                 if (!a.isBoosted && b.isBoosted) return 1;
                 return b.matchScore - a.matchScore;
@@ -110,7 +110,6 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
 
         const paginatedUsers = scoredUsers.slice(skip, skip + limit);
 
-        // ← ADDED: log a profile view for everyone shown on this page, fire-and-forget
         if (paginatedUsers.length > 0) {
             const viewDocs = paginatedUsers.map((u) => ({
                 viewerId: loggedInUser._id,
@@ -130,5 +129,27 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
         res.status(400).send({ message: "Error!!" + err.message });
     }
 })
+
+// ← ADDED: gamification badges, computed live from actual connection count
+userRouter.get("/user/badges", userAuth, async (req, res) => {
+    try {
+        const loggedInUser = req.user;
+        const connectionCount = await ConnectionRequest.countDocuments({
+            $or: [
+                { fromUserId: loggedInUser._id, status: "accepted" },
+                { toUserId: loggedInUser._id, status: "accepted" },
+            ],
+        });
+
+        const badgesWithStatus = BADGES.map((badge) => ({
+            ...badge,
+            achieved: connectionCount >= badge.threshold,
+        }));
+
+        res.json({ connectionCount, badges: badgesWithStatus });
+    } catch (err) {
+        res.status(500).send("Failed to fetch badges: " + err.message);
+    }
+});
 
 module.exports = userRouter;
