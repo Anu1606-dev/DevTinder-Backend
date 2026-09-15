@@ -4,7 +4,8 @@ const jwt = require("jsonwebtoken");
 const Chat = require("../models/chat");
 const ConnectionRequestModel = require("../models/connectionRequest");
 const { containsProfanity } = require("../utils/contentModeration");
-const { setIO } = require("./socketInstance"); // ← ADDED
+
+let ioInstance; // ← ADDED
 
 const getSecretRoomId = (userId, targetUserId) => {
   return crypto
@@ -21,7 +22,7 @@ const initializeSocket = (server) => {
     },
   });
 
-  setIO(io); // ← ADDED: makes this io instance reachable from other route files
+  ioInstance = io; // ← ADDED
 
   io.on("connection", (socket) => {
     let userId;
@@ -92,4 +93,7 @@ const initializeSocket = (server) => {
   });
 };
 
+const getIO = () => ioInstance; 
+
 module.exports = initializeSocket;
+module.exports.getIO = getIO; 

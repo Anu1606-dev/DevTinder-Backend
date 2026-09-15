@@ -3,7 +3,7 @@ const referralRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 const User = require("../models/user");
 const { generateReferralCode } = require("../utils/referralService");
-const { getIO } = require("../utils/socketInstance"); // ← ADDED
+const { getIO } = require("../utils/socket"); // ← ADDED
 
 const REFERRAL_BONUS_DAYS = 7;
 
@@ -76,12 +76,13 @@ referralRouter.post("/referral/apply", userAuth, async (req, res) => {
       $inc: { referralCount: 1 },
     });
 
-    // ← ADDED: notify the referrer live, if they happen to be online right now
+    // ← ADDED: notify the referrer live, if they currently have the app open
     const io = getIO();
     if (io) {
-      io.to(referrer._id.toString()).emit("referralApplied", {
-        newUserName: currentUser.firstName,
+      io.to(referrer._id.toString()).emit("referralBonusApplied", {
+        newUserFirstName: currentUser.firstName,
         bonusDays: REFERRAL_BONUS_DAYS,
+        newReferralCount: (referrer.referralCount || 0) + 1,
       });
     }
 
