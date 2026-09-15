@@ -3,10 +3,10 @@ const referralRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 const User = require("../models/user");
 const { generateReferralCode } = require("../utils/referralService");
+const { getIO } = require("../utils/socketInstance"); // ← ADDED
 
 const REFERRAL_BONUS_DAYS = 7;
 
-// Get (or lazily create) the logged-in user's own referral link
 referralRouter.get("/referral/my-link", userAuth, async (req, res) => {
   try {
     let user = req.user;
@@ -35,7 +35,6 @@ referralRouter.get("/referral/my-link", userAuth, async (req, res) => {
   }
 });
 
-// Called once, right after a brand-new user's first login, if they signed up via a referral link
 referralRouter.post("/referral/apply", userAuth, async (req, res) => {
   try {
     const { code } = req.body;
@@ -66,7 +65,6 @@ referralRouter.post("/referral/apply", userAuth, async (req, res) => {
       premiumExpiresAt: bonusExpiry,
     });
 
-    // Extend the referrer's existing premium if active, otherwise grant fresh
     const referrerNewExpiry =
       referrer.isPremium && referrer.premiumExpiresAt && new Date(referrer.premiumExpiresAt) > new Date()
         ? new Date(new Date(referrer.premiumExpiresAt).getTime() + REFERRAL_BONUS_DAYS * 24 * 60 * 60 * 1000)
@@ -77,6 +75,15 @@ referralRouter.post("/referral/apply", userAuth, async (req, res) => {
       premiumExpiresAt: referrerNewExpiry,
       $inc: { referralCount: 1 },
     });
+
+    // ← ADDED: notify the referrer live, if they happen to be online right now
+    const io = getIO();
+    if (io) {
+      io.to(referrer._id.toString()).emit("referralApplied", {
+        newUserName: currentUser.firstName,
+        bonusDays: REFERRAL_BONUS_DAYS,
+      });
+    }
 
     res.json({ message: `Referral applied! You both received ${REFERRAL_BONUS_DAYS} days of Premium.` });
   } catch (err) {

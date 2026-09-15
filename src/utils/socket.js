@@ -3,7 +3,8 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const Chat = require("../models/chat");
 const ConnectionRequestModel = require("../models/connectionRequest");
-const { containsProfanity } = require("../utils/contentModeration"); // ← ADDED
+const { containsProfanity } = require("../utils/contentModeration");
+const { setIO } = require("./socketInstance"); // ← ADDED
 
 const getSecretRoomId = (userId, targetUserId) => {
   return crypto
@@ -19,6 +20,8 @@ const initializeSocket = (server) => {
       credentials: true,
     },
   });
+
+  setIO(io); // ← ADDED: makes this io instance reachable from other route files
 
   io.on("connection", (socket) => {
     let userId;
@@ -57,7 +60,6 @@ const initializeSocket = (server) => {
           return;
         }
 
-        // ← ADDED: block obviously abusive messages before they're ever saved
         if (containsProfanity(text)) {
           socket.emit("errorMessage", "Your message contains inappropriate language and wasn't sent.");
           return;
