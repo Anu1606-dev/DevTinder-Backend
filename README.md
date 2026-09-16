@@ -9,7 +9,18 @@ A production-deployed REST + real-time API powering **DevTinder**, a Tinder-styl
 
 ## Screenshots
 
+> Add screenshots below as you take them. Recommended shots for the backend README specifically (things that show *architecture and behavior*, not just UI):
 
+- [ ] Terminal output showing a successful cron job run (the "Sending reminder emails to N users" log line)
+- [ ] MongoDB Compass view of a `User` document showing the `github`, `isPremium`, and `referralCode` fields populated
+- [ ] Postman/Thunder Client screenshot hitting `/user/feed` and showing the `matchScore` field in the JSON response
+- [ ] Razorpay Dashboard screenshot showing a successful test webhook delivery
+- [ ] A simple architecture diagram (Nginx → Express → MongoDB/Socket.io/Razorpay/GitHub OAuth) — even a hand-drawn one photographed works
+
+```
+![Cron job digest email running](./screenshots/cron-job-log.png)
+![Feed API response with match scores](./screenshots/feed-match-score.png)
+![Razorpay webhook delivery log](./screenshots/webhook-delivery.png)
 ```
 
 ---
