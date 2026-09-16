@@ -31,7 +31,8 @@ const githubAuthRouter = require('./routes/githubAuth');
 const matchingRouter = require('./routes/matching');
 const reportsRouter = require('./routes/reports');
 const premiumRouter = require('./routes/premium');
-const referralRouter = require('./routes/referral'); // ← ADDED
+const referralRouter = require('./routes/referral');
+const searchRouter = require('./routes/search'); // ← ADDED
 
 require('./utils/cronjob');
 
@@ -45,7 +46,8 @@ app.use("/", githubAuthRouter);
 app.use("/", matchingRouter);
 app.use("/", reportsRouter);
 app.use("/", premiumRouter);
-app.use("/", referralRouter); // ← ADDED
+app.use("/", referralRouter);
+app.use("/", searchRouter); // ← ADDED
 
 const server = http.createServer(app);
 initializeSocket(server);
